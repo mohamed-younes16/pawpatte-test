@@ -1,0 +1,258 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String      @id @unique @default(cuid())
+  name           String?
+  email          String?     @unique
+  emailVerified  DateTime?
+  image          String?
+  phoneNumber    String?
+  address        String?
+  onboarded      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  hashedpassword String?
+  accounts       Account[]
+  sessions       Session[]
+  guranteeList   Guarantee[]
+  discount       discount[]  @relation("discountToUser")
+
+  @@unique([name])
+  @@index([id])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Store {
+  id         String      @id @unique @default(cuid())
+  name       String
+  userId     String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  billBoards billBoard[] @relation("storeToBillBoard")
+  categories category[]  @relation("storeToCategory")
+  sizes      size[]      @relation("storetosize")
+  colors     color[]     @relation("storetoColor")
+  products   product[]   @relation("storetoProduct")
+  orders     order[]     @relation("storetoOrder")
+
+  @@unique([name, userId])
+  @@index([id])
+}
+
+enum billBoardType {
+  IMAGE
+  VIDEO
+}
+
+model billBoard {
+  id         String     @id @unique @default(cuid())
+  storeId    String
+  store      Store      @relation("storeToBillBoard", fields: [storeId], references: [id], onDelete: Cascade)
+  imageUrl   String
+  label      String?
+  labelColor String?    @default("")
+  text       String?
+  shown      Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories category[] @relation("billboardToCategory")
+
+  @@index([id])
+}
+
+model category {
+  id          String    @id @unique @default(cuid())
+  storeId     String
+  store       Store     @relation("storeToCategory", fields: [storeId], references: [id], onDelete: Cascade)
+  billboardId String
+  billboard   billBoard @relation("billboardToCategory", fields: [billboardId], references: [id])
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    product[] @relation("productocategory")
+  logo        String    @default("")
+
+  @@index([id])
+}
+
+model size {
+  id        String    @id @unique @default(cuid())
+  storeId   String
+  store     Store     @relation("storetosize", fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  value     sizevalue
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  product[] @relation("productosize")
+
+  @@index([id])
+}
+
+enum sizevalue {
+  S
+  M
+  L
+  XL
+  XXL
+  XXXL
+}
+
+model color {
+  id        String    @id @unique @default(cuid())
+  storeId   String
+  store     Store     @relation("storetoColor", fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  value     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  product[]
+
+  @@index([id])
+}
+
+model product {
+  id           String      @id @unique @default(cuid())
+  storeId      String
+  store        Store       @relation("storetoProduct", fields: [storeId], references: [id], onDelete: Cascade)
+  name         String
+  sizeId       String
+  size         size        @relation("productosize", fields: [sizeId], references: [id])
+  categoryId   String
+  category     category    @relation("productocategory", fields: [categoryId], references: [id])
+  color        color[]
+  price        Int
+  animal       Animal
+  description  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  isArchived   Boolean
+  isFeatured   Boolean
+  images       Image[]     @relation("imageToProduct")
+  orderItems   orderItem[] @relation("productToItem")
+  guranteeList Guarantee[]
+
+  @@index([id])
+}
+
+model discount {
+  id            String   @id @unique @default(cuid())
+  userEmail     String
+  discountOwner User?    @relation("discountToUser", fields: [userEmail], references: [email], onDelete: Cascade)
+  amount        Int
+  isUsed        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  order         order[]
+  isSpecial     Boolean? @default(false)
+
+  @@index([id])
+}
+
+enum Animal {
+  DOG
+  CAT
+}
+
+model Guarantee {
+  id           String @id @unique @default(cuid())
+  fullName     String
+  email        String @unique
+  phone        String
+  address      String
+  productName  String
+  serialNumber String
+  notes        String @default("")
+  userEmail    String
+  costumer     User   @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+
+  productId String
+  product   product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([id])
+}
+
+model Image {
+  id        String   @id @unique @default(cuid())
+  productId String
+  product   product  @relation("imageToProduct", fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([id])
+}
+
+model order {
+  id              String      @id @unique @default(cuid())
+  storeId         String
+  store           Store       @relation("storetoOrder", fields: [storeId], references: [id])
+  phoneNumber     String      @default("")
+  address         String      @default("")
+  orderOwnerName  String
+  orderOwnerEmail String
+  isPaid          Boolean
+  items           orderItem[] @relation("ordertoItem")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  discountCode    String?
+  discountUsed    discount?   @relation(fields: [discountCode], references: [id])
+
+  @@index([id])
+}
+
+model orderItem {
+  id        String  @id @unique @default(cuid())
+  orderId   String
+  order     order   @relation("ordertoItem", fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   product @relation("productToItem", fields: [productId], references: [id], onDelete: Cascade)
+  count     Int     @default(1)
+
+  @@index([id])
+}
